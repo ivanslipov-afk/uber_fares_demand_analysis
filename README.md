@@ -143,5 +143,5 @@ what it's checking and why.
 
 * Fare patterns by pickup location (would require geocoding the lat/long pairs).
 * Comparing weekday vs. weekend pricing more rigorously with a statistical test.
-* Building a simple Power BI dashboard on top of these queries.
+
 

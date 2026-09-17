@@ -1,16 +1,12 @@
 -- ============================================================
--- UBER FARES SQL ANALYSIS — PostgreSQL / pgAdmin version
--- Dataset: Uber Fares Dataset (Kaggle, author: yasserh)
--- Table name used below: uber_fares
--- Columns expected: key, fare_amount, pickup_datetime,
---   pickup_longitude, pickup_latitude,
---   dropoff_longitude, dropoff_latitude, passenger_count
+-- UBER FARES — DEMAND & FARE ANALYSIS
+-- PostgreSQL / pgAdmin
 -- ============================================================
 
 
 -- 0. CREATE TABLE
--- Run this first in pgAdmin's Query Tool, then use the Import/Export
--- feature (right-click the table -> Import/Export Data) to load the CSV.
+-- Creates the table used to store the Uber Fares dataset.
+
 CREATE TABLE uber_fares (
     key                 TEXT,
     fare_amount         NUMERIC,
@@ -23,52 +19,90 @@ CREATE TABLE uber_fares (
 );
 
 
--- 1. QUICK SANITY CHECK
--- How many rides are in the dataset, and what's the average fare?
+-- ============================================================
+-- 1. DATA QUALITY CHECK
+-- ============================================================
+-- Check the dataset for potentially invalid fare amounts
+-- and passenger counts.
+
 SELECT
-    COUNT(*)                    AS total_rides,
-    ROUND(AVG(fare_amount), 2)  AS avg_fare,
-    MIN(fare_amount)            AS min_fare,
-    MAX(fare_amount)            AS max_fare
+    COUNT(*) AS total_rows,
+
+    COUNT(*) FILTER (
+        WHERE fare_amount <= 0
+    ) AS invalid_fares,
+
+    COUNT(*) FILTER (
+        WHERE passenger_count = 0
+           OR passenger_count > 6
+    ) AS invalid_passengers,
+
+    COUNT(*) FILTER (
+        WHERE fare_amount <= 0
+           OR passenger_count = 0
+           OR passenger_count > 6
+    ) AS suspicious_rows,
+
+    ROUND(
+        100.0 * COUNT(*) FILTER (
+            WHERE fare_amount <= 0
+               OR passenger_count = 0
+               OR passenger_count > 6
+        ) / COUNT(*),
+        2
+    ) AS suspicious_pct
+
 FROM uber_fares;
 
 
--- 2. DATA QUALITY CHECK — look for bad values
--- Negative or zero fares are almost certainly data errors or cancelled rides.
--- This is the kind of check you'd do in a real investigation before trusting the numbers.
-SELECT
-    COUNT(*) AS suspicious_rows
-FROM uber_fares
-WHERE fare_amount <= 0
-   OR passenger_count = 0
-   OR passenger_count > 6;
+-- ============================================================
+-- 2. DEMAND AND FARE BY HOUR
+-- ============================================================
+-- Examine how ride volume and average fare change
+-- throughout the day.
 
-
--- 3. AVERAGE FARE BY PASSENGER COUNT
--- Does riding with more people cost more per ride?
-SELECT
-    passenger_count,
-    COUNT(*)                    AS num_rides,
-    ROUND(AVG(fare_amount), 2)  AS avg_fare
-FROM uber_fares
-WHERE passenger_count BETWEEN 1 AND 6
-GROUP BY passenger_count
-ORDER BY passenger_count;
-
-
--- 4. RIDES BY HOUR OF DAY — find peak hours
--- EXTRACT(HOUR FROM ...) is the PostgreSQL way to pull the hour out of a timestamp.
 SELECT
     EXTRACT(HOUR FROM pickup_datetime)::INT AS hour_of_day,
-    COUNT(*)                                AS num_rides,
-    ROUND(AVG(fare_amount), 2)              AS avg_fare
+    COUNT(*) AS num_rides,
+    ROUND(AVG(fare_amount), 2) AS avg_fare
 FROM uber_fares
+WHERE fare_amount > 0
+  AND passenger_count BETWEEN 1 AND 6
 GROUP BY hour_of_day
+ORDER BY hour_of_day;
+
+
+-- ============================================================
+-- 3. PEAK VS. OFF-PEAK
+-- ============================================================
+-- Compare ride volume and average fare during peak-demand
+-- hours (18:00–22:00) with all other hours.
+
+SELECT
+    CASE
+        WHEN EXTRACT(HOUR FROM pickup_datetime)::INT BETWEEN 18 AND 22
+            THEN 'Peak'
+        ELSE 'Off-peak'
+    END AS demand_period,
+
+    COUNT(*) AS num_rides,
+    ROUND(AVG(fare_amount), 2) AS avg_fare
+
+FROM uber_fares
+
+WHERE fare_amount > 0
+  AND passenger_count BETWEEN 1 AND 6
+
+GROUP BY demand_period
 ORDER BY num_rides DESC;
 
 
--- 5. RIDES BY DAY OF WEEK
--- EXTRACT(DOW FROM ...) returns 0 = Sunday ... 6 = Saturday, same as SQLite's %w.
+-- ============================================================
+-- 4. PEAK VS. OFF-PEAK BY DAY
+-- ============================================================
+-- Check whether the relationship between demand period
+-- and average fare is consistent across the week.
+
 SELECT
     CASE EXTRACT(DOW FROM pickup_datetime)::INT
         WHEN 0 THEN 'Sunday'
@@ -79,62 +113,55 @@ SELECT
         WHEN 5 THEN 'Friday'
         WHEN 6 THEN 'Saturday'
     END AS day_of_week,
-    COUNT(*)                    AS num_rides,
-    ROUND(AVG(fare_amount), 2)  AS avg_fare
+
+    COUNT(*) AS total_rides,
+
+    COUNT(*) FILTER (
+        WHERE EXTRACT(HOUR FROM pickup_datetime)::INT BETWEEN 18 AND 22
+    ) AS peak_rides,
+
+    ROUND(
+        AVG(fare_amount) FILTER (
+            WHERE EXTRACT(HOUR FROM pickup_datetime)::INT BETWEEN 18 AND 22
+        ),
+        2
+    ) AS peak_avg_fare,
+
+    ROUND(
+        AVG(fare_amount) FILTER (
+            WHERE EXTRACT(HOUR FROM pickup_datetime)::INT NOT BETWEEN 18 AND 22
+        ),
+        2
+    ) AS offpeak_avg_fare
+
 FROM uber_fares
-GROUP BY day_of_week
-ORDER BY num_rides DESC;
+
+WHERE fare_amount > 0
+  AND passenger_count BETWEEN 1 AND 6
+
+GROUP BY EXTRACT(DOW FROM pickup_datetime)::INT
+
+ORDER BY EXTRACT(DOW FROM pickup_datetime)::INT;
 
 
--- 6. MONTHLY TREND — is average fare rising or falling over time?
--- Uses a CTE (Common Table Expression) to keep the logic readable.
-WITH monthly AS (
-    SELECT
-        TO_CHAR(pickup_datetime, 'YYYY-MM') AS ride_month,
-        fare_amount
-    FROM uber_fares
-    WHERE fare_amount > 0
-)
+-- ============================================================
+-- 5. PEAK HOURS BY DAY
+-- ============================================================
+-- Examine ride volume and average fare for each hour
+-- during the peak-demand period.
+
 SELECT
-    ride_month,
-    COUNT(*)                    AS num_rides,
-    ROUND(AVG(fare_amount), 2)  AS avg_fare
-FROM monthly
-GROUP BY ride_month
-ORDER BY ride_month;
+    EXTRACT(DOW FROM pickup_datetime)::INT AS day_num,
+    EXTRACT(HOUR FROM pickup_datetime)::INT AS hour_of_day,
+    COUNT(*) AS num_rides,
+    ROUND(AVG(fare_amount), 2) AS avg_fare
 
+FROM uber_fares
 
--- 7. WINDOW FUNCTION — rank hours of the day by ride volume
--- Demonstrates the use of a window function to rank hours by ride volume.
-SELECT
-    hour_of_day,
-    num_rides,
-    RANK() OVER (ORDER BY num_rides DESC) AS volume_rank
-FROM (
-    SELECT
-        EXTRACT(HOUR FROM pickup_datetime)::INT AS hour_of_day,
-        COUNT(*)                                AS num_rides
-    FROM uber_fares
-    GROUP BY hour_of_day
-) hourly_counts
-ORDER BY volume_rank;
+WHERE fare_amount > 0
+  AND passenger_count BETWEEN 1 AND 6
+  AND EXTRACT(HOUR FROM pickup_datetime)::INT BETWEEN 18 AND 22
 
+GROUP BY day_num, hour_of_day
 
--- 8. RUNNING TOTAL OF RIDES OVER TIME (window function, cumulative)
--- Calculates the cumulative number of rides over time.
-WITH daily AS (
-    SELECT
-        pickup_datetime::DATE AS ride_date,
-        COUNT(*)              AS num_rides
-    FROM uber_fares
-    GROUP BY ride_date
-)
-SELECT
-    ride_date,
-    num_rides,
-    SUM(num_rides) OVER (ORDER BY ride_date) AS running_total_rides
-FROM daily
-ORDER BY ride_date;
-
-
-
+ORDER BY day_num, hour_of_day;

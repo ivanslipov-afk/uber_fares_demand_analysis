@@ -1,147 +1,135 @@
-# Uber Fares — SQL Analysis
+Uber Fares — Demand & Fare Analysis
 
-## 
+1 Business Question
 
-## Why I built this
+How does ride demand vary by time and day, and is higher demand associated with higher average fares? 
 
+This project investigates ride demand patterns across different hours and days of the week and examines 
+whether periods of higher demand are associated with higher average fares.
 
+2 Dataset
 
-I work as a Safety Investigation Specialist at Uber, where I use SQL daily to
-investigate operational data and identify patterns. I wanted to apply the same
-data-driven, investigative approach to a public dataset to demonstrate my SQL
-and analytical skills outside of my day-to-day work.
+[Uber Fares Dataset (Kaggle)](https://www.kaggle.com/datasets/yasserh/uber-fares-dataset)
 
-## 
+The dataset contains approximately 200,000 ride records with information about:
 
-## Dataset
+fare amount;
+pickup datetime;
+pickup and dropoff coordinates;
+passenger count.
 
+3 Tools used
 
+PostgreSQL + pgAdmin
 
-\[Uber Fares Dataset (Kaggle)](https://www.kaggle.com/datasets/yasserh/uber-fares-dataset)
-— \~200,000 ride records with fare amount, pickup datetime, pickup/dropoff
-coordinates, and passenger count.
 
-## 
+4 Analytical Approach
 
-## Tools used
+The analysis follows a step-by-step investigation.
 
+Data Quality
 
+The dataset contains 200,000 records. I identified 732 suspicious rows, representing approximately 0.37% of the dataset.
 
-* PostgreSQL + pgAdmin
+These records contained either non-positive fare amounts and invalid passenger counts.
 
-## 
+The suspicious records were excluded from the main analysis using validation filters rather than being deleted from the original dataset.
 
-## Questions I investigated
+Demand by Hour
 
+I analyzed the number of rides and average fare for each hour of the day.
 
+The highest ride volume occurs during the evening.
 
-1. What does the overall fare and ride volume look like, and is the data clean?
-2. Does passenger count affect the average fare?
-3. What are the peak hours and days for ride volume?
-4. Is there a trend in average fare over time?
-5. Which hours have the highest ride demand?
+The period from 18:00 to 22:00 consistently shows high demand, with 19:00 being the busiest individual hour.
 
-## 
+Peak vs. Off-Peak
 
-## Key findings
+To investigate this question, I compared rides during the 18:00–22:00 peak period with rides during all other hours.
 
+Period	        Rides	        Average Fare
+Peak	        58,693	          $10.91
+Off-peak        140,575	          $11.56
 
+The results show that peak-demand rides actually had a lower average fare than off-peak rides in this dataset.
 
-\- \*\*Dataset overview:\*\* The dataset contains \*\*200,000 ride records\*\* with an
+This suggests that ride volume and average fare do not move together in a simple way.
 
-&#x20; average fare of \*\*$11.36\*\*. Fare amounts range from \*\*-$52.00 to $499.00\*\*,
+Importantly, this analysis describes an observed relationship in the dataset and does not establish that demand causes fares to increase or decrease.
 
-&#x20; indicating that some records may contain invalid fare values.
 
+Demand Patterns by Day
 
+Then i examined whether the relationship between demand and fare was consistent across different days of the week.
 
-\- \*\*Data quality:\*\* Found \*\*732 suspicious rows\*\* with invalid fare amounts or
+Friday had the highest overall ride volume, with 30,775 valid rides.
 
-&#x20; passenger counts. These rows should be investigated before using the data
+However, Friday's peak-period average fare was $10.92, compared with $11.67 during off-peak hours.
 
-&#x20; for final analysis.
+Sunday showed a different pattern: its peak and off-peak average fares were much closer, at $11.66 and $11.80, respectively.
 
+This shows that the relationship between ride volume and average fare can vary depending on the day.
 
 
-\- \*\*Peak hours:\*\* Ride demand is highest during the evening, with \*\*19:00\*\*
+5 Key findings
 
-&#x20; ranking first with \*\*12,605 rides\*\*. The period from \*\*18:00 to 22:00\*\*
+1. Data quality
 
-&#x20; consistently shows high ride volume, while average fares during these hours
+Only 0.37% of records were classified as suspicious based on the validation rules used in this analysis.
 
-&#x20; remain around \*\*$10.56–$11.31\*\*.
+2. Demand is concentrated in the evening
 
+The 18:00–22:00 period has consistently high ride volume, with 19:00 being the busiest individual hour.
 
+3. Higher demand does not automatically mean higher fares
 
-\- \*\*Passenger count vs. fare:\*\* Average fare does not increase consistently
+Peak-period rides had an average fare of $10.91, compared with $11.56 during off-peak hours.
 
-&#x20; with the number of passengers. Rides with 6 passengers had the highest
+4. The busiest day is not the highest-fare day
 
-&#x20; average fare at \*\*$12.16\*\*, while rides with 5 passengers had a lower average
+Friday had the highest ride volume, but its average fares were not the highest.
 
-&#x20; fare of \*\*$11.20\*\*. This suggests that passenger count alone does not
+5. The relationship varies by day
 
-&#x20; strongly determine the fare.
+Most days showed lower average fares during peak hours, while Sunday showed only a small difference between peak and off-peak fares.
 
 
+6 Analytical Conclusion 
 
-\- \*\*Day of week:\*\* Friday had the highest ride volume with \*\*30,880 rides\*\*,
+The analysis suggests that ride demand and average fare are not directly aligned in a simple way within this dataset.
 
-&#x20; while Monday had the lowest with \*\*25,243 rides\*\*. Sunday had the highest
-
-&#x20; average fare at \*\*$11.76\*\*, showing that the busiest day does not necessarily
-
-&#x20; have the highest average fare.
-
-
-
-\- \*\*Monthly fare trend:\*\* Average fares show a clear upward trend over the
-
-&#x20; analyzed period. The average fare increased from \*\*$9.58 in January 2009\*\*
-
-&#x20; to \*\*$13.58 in June 2015\*\*, although the trend was not consistent every
-
-&#x20; month. The highest monthly average fare was \*\*$13.60 in May 2015\*\*.
-
-
-
-### Conclusion
-
-
-
-This analysis demonstrates how SQL can be used to investigate ride-hailing
-
-data, identify data quality issues, analyze demand patterns, and track trends
-
-over time using aggregation, CTEs, and window functions.
-
-
-
-The project highlights practical analytical skills that are directly applicable
-
-to operational investigations and business intelligence work.
-
-## 
-
-## How to reproduce
-
-
-
-1. Download the dataset from Kaggle (link above).
-2. In pgAdmin, create a database (e.g. `uber\\\\\\\_analysis`), open the Query Tool,
-and run the `CREATE TABLE` statement from `queries.sql`.
-3. Right-click the new `uber\\\\\\\_fares` table → **Import/Export Data...** →
-select the CSV file, set format to CSV, header = Yes → Import.
-4. Run the queries in `queries.sql` in order — each one is commented to explain
-what it's checking and why.
-
-## 
-
-## What I'd explore next
-
-
-
-* Fare patterns by pickup location (would require geocoding the lat/long pairs).
-* Comparing weekday vs. weekend pricing more rigorously with a statistical test.
-
-
+The busiest hours and days do not consistently correspond to the highest average fares. This indicates that ride volume alone is not sufficient to explain fare differences.
+
+Further analysis would be required to investigate other factors that may contribute to fare variation.
+
+7 SQL Techniques Used
+
+COUNT()
+AVG()
+ROUND()
+GROUP BY
+CASE
+FILTER
+EXTRACT()
+Common Table Expressions (CTEs)
+Window functions
+Data quality validation
+Date and time analysis
+Aggregation and segmentation
+
+
+8 How to reproduce
+
+1 Download the Uber Fares Dataset from Kaggle.
+2 Create a PostgreSQL database.
+3 Create the uber_fares table using the SQL script.
+4 Import the CSV dataset.
+5 Run the queries in queries.sql.
+6 Review the resulting tables and findings.
+
+9 What I'd explore next
+
+Analyze fare patterns by pickup location.
+Investigate weekday vs. weekend differences in more detail.
+Examine the relationship between trip distance and fare.
+Build a Power BI dashboard to visualize demand and fare patterns.

@@ -92,11 +92,11 @@ To investigate this question, I compared rides during the 18:00–22:00 peak per
 
 
 
-**Period	        Rides	        Average Fare**
+**Period	//        Rides	  //      Average Fare**
 
-Peak	             58,693	          $10.91
+Peak	   //          58,693	//          $10.91
 
-Off-peak           140,575	          $11.56
+Off-peak //          140,575	//          $11.56
 
 
 
